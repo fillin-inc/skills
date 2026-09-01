@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Show tool versions
+        run: |
+          bash --version | head -1
+          shellcheck --version | head -2
+          make --version | head -1
+          node --version
+
+      - name: make lint
+        run: make lint
+
+      - name: make test
+        run: make test
