@@ -18,7 +18,7 @@ gh skill install <owner>/<repo> <name>
 
 | skill | 用途 |
 |---|---|
-| — | まだ skill はありません |
+| `web-research-report` | Web 調査から出典付きの HTML または Markdown 資料を作成 |
 
 ## 開発
 
