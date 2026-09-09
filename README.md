@@ -18,6 +18,7 @@ gh skill install <owner>/<repo> <name>
 
 | skill | 用途 |
 |---|---|
+| `graphic-recording` | テキストやファイルから A4 比率のグラフィックレコーディング画像を生成 |
 | `web-research-report` | Web 調査から出典付きの HTML または Markdown 資料を作成 |
 
 ## 開発
