@@ -33,7 +33,7 @@ argument-hint: "[入力テキストまたはファイルパス...] [--tone busin
 "$SKILL_DIR/scripts/parse-options.sh" [<入力テキストまたはファイルパス>...] [--tone <tone>] [--orientation <orientation>] [--output <path>]
 ```
 
-出力の `--- STYLE ---` 以降がトーン別の画風指示、`--- LAYOUT ---` 以降が向き別のレイアウト指示で、どちらも Phase 3 のプロンプトへそのまま組み込む。
+出力の `STYLE_SECTION` と `LAYOUT_SECTION` は、画風とレイアウトの本文を持つ [`references/presets.md`](references/presets.md) の見出しを指す。Phase 3 でこのファイルを読み、指された 2 節だけを使う。
 
 スクリプトの呼び出しが失敗したときは 3 通りに分けて扱う。
 
@@ -64,6 +64,8 @@ argument-hint: "[入力テキストまたはファイルパス...] [--tone busin
 
 ## Phase 3: 生成プロンプトの組み立て
 
+[`references/presets.md`](references/presets.md) を読み、`STYLE_SECTION` と `LAYOUT_SECTION` が指す節を取り出す。指された見出しが見つからない場合は、スクリプトの出力と presets.md の見出しを突き合わせて食い違いをユーザーに伝え、skill の同梱ファイルの整合性を確認するよう案内して停止する。
+
 次のテンプレートを埋めて画像生成プロンプトを作る。文字は画像生成モデルが最も崩しやすい要素なので、描かせたい日本語文字列は要約せずそのまま列挙する。
 
 ```
@@ -75,10 +77,10 @@ argument-hint: "[入力テキストまたはファイルパス...] [--tone busin
 ピクセル指定が可能な場合: <PIXEL_WIDTH> x <PIXEL_HEIGHT>
 
 # 画風
-<--- STYLE --- の内容をそのまま貼る>
+<presets.md の STYLE_SECTION が指す節の本文をそのまま貼る>
 
 # レイアウト
-<--- LAYOUT --- の内容をそのまま貼る>
+<presets.md の LAYOUT_SECTION が指す節の本文をそのまま貼る>
 
 # 描き込む文字
 タイトル: 「<タイトル>」
