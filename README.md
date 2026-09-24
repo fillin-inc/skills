@@ -19,6 +19,7 @@ gh skill install <owner>/<repo> <name>
 | skill | 用途 |
 |---|---|
 | `graphic-recording` | テキストやファイルから A4 比率のグラフィックレコーディング画像を生成 |
+| `template-fill` | Markdown テンプレートの空欄を上から 1 問ずつ質問し、回答を書き込んだ Markdown を出力 |
 | `web-research-report` | Web 調査から出典付きの HTML または Markdown 資料を作成 |
 
 ## 開発
