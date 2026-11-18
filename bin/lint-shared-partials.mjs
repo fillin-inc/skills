@@ -22,7 +22,10 @@ if (top.status !== 0) {
   process.exit(1);
 }
 const REPO_ROOT = top.stdout.trim();
-const manifest = process.argv[2] ?? path.join(REPO_ROOT, "bin", "shared-partials.tsv");
+// 後で cwd をリポジトリルートへ移すため、引数の相対パスは移動前の cwd で絶対パスにしておく
+const manifest = process.argv[2] !== undefined
+  ? path.resolve(process.argv[2])
+  : path.join(REPO_ROOT, "bin", "shared-partials.tsv");
 
 const err = (m) => process.stderr.write(`${m}\n`);
 
