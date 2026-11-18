@@ -31,7 +31,11 @@ make test      # lint スクリプトの単体テスト
 make validate  # gh skill publish --dry-run (spec 適合検証)
 ```
 
-コントリビュートの際は [AGENTS.md](AGENTS.md) を参照してください。設計ガイドラインは [`docs/guidelines/`](docs/guidelines/) にあります。
+## コントリビューション
+
+不具合報告や機能提案は [issue](https://github.com/fillin-inc/skills/issues) でお寄せください。変更はメンテナが issue をもとに実装するため、外部からの Pull Request は受け付けていません(送られた場合は close します)。
+
+メンテナ向けの開発ルールは [AGENTS.md](AGENTS.md)、設計ガイドラインは [`docs/guidelines/`](docs/guidelines/) にあります。
 
 ## ライセンス
 

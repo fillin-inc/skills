@@ -65,6 +65,13 @@ SKILL.md / references 間で byte 同一に共有する記述(`$SKILL_DIR` の�
 
 ## 開発フロー
 
+### コントリビューションの受付
+
+- 外部コントリビューターからは issue(不具合報告・機能提案)だけを受け付ける
+- 外部からの PR は受け付けない。届いた場合は issue での起票を案内するコメントを付けて close する
+- PR の作成・merge はメンテナのみが行う。issue で受けた提案もメンテナが実装する
+- 本書と AGENTS.md の「skill 経由の操作」「Co-authored-by trailer」などの MUST はメンテナの作業に適用する。メンテナは参照先の skill(`commit` / `pull-request` / `issue` / `cross-review`)を手元に導入しておく
+
 ### merge 方式
 
 PR の merge 方式は squash とする。merge 用の skill はこの記載を merge 方式として読む。

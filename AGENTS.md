@@ -213,6 +213,7 @@ skill 本文での書き方:
 
 ## PR 作成ルール
 
+- **MUST**: PR を作成・merge するのはメンテナのみとする。外部コントリビューターからは issue(不具合報告・機能提案)だけを受け付け、外部からの PR は受け付けない。詳細は [`repository-maintenance.md`](docs/specs/repository-maintenance.md#コントリビューションの受付) を参照。本節と「コミット指針」の MUST はメンテナの作業に適用する
 - PR タイトルも **Conventional Commits** 形式に寄せる(squash-and-merge 後のコミットメッセージがそのまま PR タイトルになるため)。
 - issue 駆動の PR は本文に `Closes #N`(または `Fixes #N`)を必ず含め、マージ時に自動で close されるようにする。
 - マージ方式は **squash** とする(merge 用の skill はこの記載を merge 方式として読む)。
