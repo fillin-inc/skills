@@ -38,11 +38,14 @@
 ## ビルド・開発コマンド
 
 ```bash
-make help      # 利用可能なコマンドを表示
-make lint      # shellcheck + frontmatter / ライセンス / 括弧ルール 等の検証
-make test      # bin/tests/test-*.sh の単体テスト
-make validate  # gh skill publish --dry-run (spec 適合検証)
+make help                     # 利用可能なコマンドを表示
+make setup                    # Node.js 依存 (リポジトリ直下 + skill 同梱) をインストール
+make lint                     # shellcheck + frontmatter / license / 括弧ルール 等の検証 (並列実行、JOBS=N)
+make test                     # bin/tests と skill 同梱テストを並列実行 (SKILLS="a b" で絞り込み、JOBS=N)
+make validate                 # gh skill publish --dry-run (spec 適合検証)
 ```
+
+`make lint` は frontmatter の YAML 検証に npm の `yaml` を使うため、初回は `make setup`(または `make install-node-deps`)を実行する。lockfile を持つ skill の依存は `make install-skill-node-deps` で入る。
 
 ## ライセンス方針
 
@@ -195,7 +198,9 @@ skill 本文での書き方:
 
 - 新しい skill を追加した場合は、実際にホストエージェントから呼び出して動作確認を行う
 - `make lint` で全リントを実行する
-- `make test` で lint スクリプトの単体テストを実行する
+- `make test` で `bin/tests` の単体テストと skill 同梱テストを実行する。ローカルでは変更した skill に絞って `make test SKILLS=<name>` を回してよい(全件は CI が実行する)
+- skill 同梱テストは `skills/<name>/scripts/tests/`(`test-*.sh` / `test-*.mjs` / `*.test.mjs`)か `skills/<name>/scripts/*.test.mjs` に置く。それ以外の場所のテストは `bin/lint-skill-tests.sh` が error にする(`bin/list-skill-tests.sh` が配置規則の SSOT)
+- `bin/tests` にテストを足したら `bin/tests/test-map.tsv` に skill との対応を 1 行足す(skill に紐付かないなら `-`)
 - `make validate` で `gh skill publish --dry-run` を通す
 
 ## コミット指針

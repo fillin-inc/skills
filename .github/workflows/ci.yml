@@ -1,9 +1,11 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -13,16 +15,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Show tool versions
         run: |
+          echo "nproc: $(nproc)"
           bash --version | head -1
           shellcheck --version | head -2
           make --version | head -1
           node --version
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.16.1
+
+      - name: Install repository Node dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: make lint
         run: make lint
 
+      - name: Detect docs-only change
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          other=$(git diff --name-only "$BASE_SHA"...HEAD | grep -v -e '\.md$' -e '^docs/' || true)
+          if [ -z "$other" ]; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install skill Node dependencies
+        if: steps.scope.outputs.docs_only != 'true'
+        run: make install-skill-node-deps
+
       - name: make test
+        if: steps.scope.outputs.docs_only != 'true'
         run: make test

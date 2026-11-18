@@ -1,0 +1,11 @@
+# TEST_PATH	SKILLS
+# bin/tests の各テストと skill の対応表。make test SKILLS=<name> の絞り込みと lint-skill-tests.sh の漏れ検査が読む。
+# 1 行 = 1 テスト。列はタブ区切り。bin/tests に test-*.sh / test-*.mjs を足したら必ず行を足す(足さないと make lint が error にする)。
+# SKILLS: 関係する skill 名をカンマ区切りで書く。特定の skill に紐付かない(lint・repo 全体)なら - にする。
+bin/tests/test-lint-frontmatter.sh	-
+bin/tests/test-lint-markdown-punctuation.sh	-
+bin/tests/test-lint-mjs-syntax.sh	-
+bin/tests/test-lint-script-invocation.sh	-
+bin/tests/test-lint-skill-tests.sh	-
+bin/tests/test-run-lints.mjs	-
+bin/tests/test-run-tests.mjs	-

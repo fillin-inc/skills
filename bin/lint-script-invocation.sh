@@ -7,12 +7,12 @@
 #   skill 起動時の cwd は「作業対象リポジトリ」であって skill ディレクトリでは
 #   ない。md に `./scripts/xxx.sh` と書かれていると、エージェントはそれを成立
 #   させるため skill ディレクトリへ `cd` する。すると cwd が作業対象リポジトリ
-#   から外れ、repo を検査する preflight.sh 等が
+#   から外れ、repo を検査する check-state.sh 等が
 #   "not inside a git repository" で落ちる。`cd` しない場合は単にファイル不在で
 #   落ちる。
 #
 # 検出規則は 2 つ。対象は skills/**/*.md (SKILL.md / references/ /
-# HOW_TO_USE.md / scripts/ 配下の md を含む。node_modules/ は除外):
+# scripts/ 配下の md を含む。node_modules/ は除外):
 #
 #   規則 1: `./scripts/` が現れたら fail (出現位置を問わない)
 #     先頭 `./` は実行を意図した書き方でしか出てこないため、散文中の言及でも
@@ -37,11 +37,11 @@
 #           行頭から確認して切り分ける
 #       (c) インタプリタ省略かつ行頭 (前置の空白を許容) で、直後が行末 /
 #           **ASCII の可読文字** / コマンド区切り (`;` `&` `|` `)`) —
-#           `scripts/preflight.sh --input-kind issue` /
+#           `scripts/check-state.sh --input-kind issue` /
 #           `scripts/import.sh input.csv` / `scripts/foo.sh; echo done` を拾う
 #
 #     (c) で「直後が行末か ASCII 可読文字」を要求するのは、行頭から始まる日本語
-#     散文 (`scripts/refresh-data.sh がこの出力と…`) を violation にしないため。
+#     散文 (`scripts/update-table.sh がこの出力と…`) を violation にしないため。
 #     判定は LC_ALL=C 下のバイト比較で行い、マルチバイト文字 (0x80 以上) が続く
 #     行を除外する。英文の散文が行頭から `scripts/foo.sh is …` と始まる場合は
 #     誤検出になるが、skills 配下の md は日本語で書かれる前提なのでこの取り違えは
@@ -49,9 +49,21 @@
 #     やリポジトリ相対の手動実行手順 (`sh skills/<name>/scripts/setup.sh`) は
 #     いずれの規則にも当たらず、意図的に検出しない。
 #
+# 規則 3 (別軸): 実行コードの行に `eval "$(...)"` の一発形があったら fail
+#   一発形は内側のコマンドが失敗しても `eval` が 0 を返し、失敗を見逃して後続へ
+#   進む。`OUT=$(cmd) || exit 1` と `eval "$OUT"` の 2 段で書く。対象は行頭
+#   (前置の空白を許容) か、`;` `&` `|` `then` `else` `do` `if` `elif` `while` `until` の直後に
+#   現れるものだけ。散文中のインラインコード (backtick で囲んだ言及) は、行内の
+#   より前に backtick があるため検出しない。
+#   例外: 常に exit 0 で失敗を返さないスクリプト (空出力が「未判定」を意味し、
+#   失敗として扱う分岐が無いもの) の呼び出しは一発形でよい。例外にするスクリプト名
+#   (拡張子 `.mjs` を除いた名前) は EVAL_EXEMPT_SCRIPTS に `|` 区切りで列挙する。
+#   既定は空 (例外なし)。テストからは環境変数 EVAL_EXEMPT_SCRIPTS で上書きできる。
+#   例外は呼び出し単位で外すので、同じ行に禁止対象があればそちらは検出する。
+#
 # `cd` そのものは検出しない。相対記法を禁止すれば `cd` を誘発する原因が
 # 消えるため、また skills 配下 md の `cd` は作業対象リポジトリ内での正当な用途
-# (HOW_TO_USE の手動実行手順 / `cd "$REPO_ROOT"` 等) が大半で、例外規則を持つと
+# (`cd "$REPO_ROOT"` 等) が大半で、例外規則を持つと
 # 規則自体が形骸化するため。
 #
 # 使い方: sh ./bin/lint-script-invocation.sh [<skills-dir>]
@@ -74,8 +86,12 @@ WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/lint-script-invocation.XXXXXXXX")
 trap 'rm -rf "$WORK_DIR"' EXIT INT TERM
 FILELIST="$WORK_DIR/files"
 FOUND="$WORK_DIR/found"
+EVAL_FOUND="$WORK_DIR/eval-found"
+EVAL_HIT="$WORK_DIR/eval-hit"
+EVAL_STRIP="$WORK_DIR/eval-strip"
 ERRLOG="$WORK_DIR/err"
 : > "$FOUND"
+: > "$EVAL_FOUND"
 : > "$ERRLOG"
 
 # node_modules/ は skill が auto-install する外部パッケージの置き場 (gitignore 済み)。
@@ -116,6 +132,25 @@ PATTERN="\\./scripts/\
 |${BARE_CTX_PIPE}${TIMEOUT_OPT}${SCRIPT_REF}\
 |^[[:space:]]*${TIMEOUT_OPT}${SCRIPT_REF}([[:space:]]*\$|[[:space:]]+${ARG_HEAD}|${CMD_SEP})"
 
+# 規則 3: 実行コードの行の `eval "$(...)"` / `eval $(...)` (一発形)。
+# 行頭 (空白許容) か、`;` `&` `|` と制御構文キーワードの直後だけを実行文と見なす。
+EVAL_ONE_SHOT='^[^`]*(^|[;&|]|(^|[[:space:]])(then|else|do|if|elif|while|until)[[:space:]]+)[[:space:]]*eval[[:space:]]+"?\$\('
+# 一発形を許す常時 exit 0 のスクリプト名 (`|` 区切り、拡張子 .mjs を除く)。既定は空。
+EVAL_EXEMPT_SCRIPTS="${EVAL_EXEMPT_SCRIPTS:-}"
+case "$EVAL_EXEMPT_SCRIPTS" in
+    *[!A-Za-z0-9_\|-]*)
+        echo "lint-script-invocation: EVAL_EXEMPT_SCRIPTS には英数字・_・- と区切りの | だけを書けます: $EVAL_EXEMPT_SCRIPTS" >&2
+        exit 1
+        ;;
+esac
+# 例外は呼び出し単位で外す。行全体を除外すると、同じ行の禁止対象まで見逃す。
+# 実行対象 (`node "$SKILL_DIR/scripts/<name>.mjs"`) が例外のスクリプトそのものである単独呼び出しだけを外す。
+# 引数や複合コマンド (`;` `&` `|` を含む置換) に例外名があっても例外にしない。
+EVAL_EXEMPT_CALL=''
+if [ -n "$EVAL_EXEMPT_SCRIPTS" ]; then
+    EVAL_EXEMPT_CALL='eval[[:space:]]+"?\$\([[:space:]]*node[[:space:]]+"?\$\{?SKILL_DIR\}?/scripts/('"$EVAL_EXEMPT_SCRIPTS"')\.mjs"?([[:space:]][^);&|]*)?\)"?'
+fi
+
 # ファイルごとに grep して終了状態を個別に見る。
 #   0    = 一致あり (違反)
 #   1    = 一致なし
@@ -134,6 +169,25 @@ while IFS= read -r f; do
     if [ "$rc" -ge 2 ]; then
         SEARCH_ERR=1
     fi
+
+    # 例外の呼び出しだけを取り除いた行に対して検査する (行番号は保つ)。
+    rc=0
+    if [ -n "$EVAL_EXEMPT_CALL" ]; then
+        sed -E "s#$EVAL_EXEMPT_CALL##g" "$f" > "$EVAL_STRIP" 2>> "$ERRLOG" || rc=$?
+    else
+        cp "$f" "$EVAL_STRIP" 2>> "$ERRLOG" || rc=$?
+    fi
+    if [ "$rc" -ge 1 ]; then
+        SEARCH_ERR=1
+    else
+        rc=0
+        LC_ALL=C grep -En -- "$EVAL_ONE_SHOT" "$EVAL_STRIP" > "$EVAL_HIT" 2>> "$ERRLOG" || rc=$?
+        if [ "$rc" -ge 2 ]; then
+            SEARCH_ERR=1
+        elif [ -s "$EVAL_HIT" ]; then
+            sed "s|^|$f:|" "$EVAL_HIT" >> "$EVAL_FOUND"
+        fi
+    fi
 done < "$FILELIST"
 
 if [ "$SEARCH_ERR" -ne 0 ] || [ -s "$ERRLOG" ]; then
@@ -142,20 +196,36 @@ if [ "$SEARCH_ERR" -ne 0 ] || [ -s "$ERRLOG" ]; then
     exit 1
 fi
 
-if [ ! -s "$FOUND" ]; then
+if [ ! -s "$FOUND" ] && [ ! -s "$EVAL_FOUND" ]; then
     echo "lint-script-invocation: PASS ($COUNT files checked)"
     exit 0
 fi
 
-VIOLATIONS=$(wc -l < "$FOUND" | tr -d ' ')
+VIOLATIONS=$(cat "$FOUND" "$EVAL_FOUND" | wc -l | tr -d ' ')
 
 echo "lint-script-invocation: FAIL ($VIOLATIONS 箇所)" >&2
-echo "  skills 配下の md で同梱スクリプトを cwd 相対パス (./scripts/ または scripts/) で呼んでいます。" >&2
-# $SKILL_DIR はエージェント向けの案内文として literal 出力する (展開させない)
-# shellcheck disable=SC2016
-echo '  skill ディレクトリ基準の絶対パス "$SKILL_DIR/scripts/<name>.sh" に書き換えてください。' >&2
-# shellcheck disable=SC2016
-echo '  $SKILL_DIR の宣言は bin/partials/skill-dir.md を SKILL.md 冒頭に埋め込みます。' >&2
-echo "" >&2
-sed "s|^$SKILLS_DIR/|skills/|" "$FOUND" >&2
+
+if [ -s "$FOUND" ]; then
+    echo "  skills 配下の md で同梱スクリプトを cwd 相対パス (./scripts/ または scripts/) で呼んでいます。" >&2
+    # $SKILL_DIR はエージェント向けの案内文として literal 出力する (展開させない)
+    # shellcheck disable=SC2016
+    echo '  skill ディレクトリ基準の絶対パス "$SKILL_DIR/scripts/<name>.sh" に書き換えてください。' >&2
+    # shellcheck disable=SC2016
+    echo '  $SKILL_DIR は SKILL.md 冒頭で宣言します。' >&2
+    echo "" >&2
+    sed "s|^$SKILLS_DIR/|skills/|" "$FOUND" >&2
+fi
+
+if [ -s "$EVAL_FOUND" ]; then
+    # 案内文として literal 出力する (展開させない)
+    # shellcheck disable=SC2016
+    echo '  skills 配下の md の実行コードに eval "$(...)" の一発形があります。内側のコマンドが失敗しても eval が 0 を返し、失敗を見逃します。' >&2
+    # shellcheck disable=SC2016
+    echo '  OUT=$(cmd) || exit 1 と eval "$OUT" の 2 段に分けてください。' >&2
+    if [ -n "$EVAL_EXEMPT_SCRIPTS" ]; then
+        echo "  例外は常に exit 0 のスクリプト ($EVAL_EXEMPT_SCRIPTS) だけです。空出力が「未判定」を意味し、失敗として扱う分岐が無いためです。" >&2
+    fi
+    echo "" >&2
+    sed "s|^$SKILLS_DIR/|skills/|" "$EVAL_FOUND" >&2
+fi
 exit 1

@@ -67,7 +67,8 @@ new_sandbox
 mkdir -p "$S/alpha/references"
 cat > "$S/alpha/SKILL.md" <<'MD'
 # alpha
-eval "$("$SKILL_DIR/scripts/parse-args.sh" "$USER_INPUT")"
+OUT=$("$SKILL_DIR/scripts/parse-args.sh" "$USER_INPUT") || exit 1
+eval "$OUT"
 MD
 cat > "$S/alpha/references/x.md" <<'MD'
 `"$SKILL_DIR/scripts/foo.sh"` に委譲する。
@@ -82,7 +83,7 @@ mkdir -p "$S/beta"
 cat > "$S/beta/SKILL.md" <<'MD'
 # beta
 ```sh
-./scripts/preflight.sh --input-kind issue
+./scripts/check-state.sh --input-kind issue
 ```
 MD
 OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
@@ -94,7 +95,7 @@ new_sandbox
 mkdir -p "$S/gamma"
 cat > "$S/gamma/SKILL.md" <<'MD'
 # gamma
-判定ルールの真実源は `./scripts/branch-guard.sh` header。
+判定ルールの真実源は `./scripts/branch-guard.mjs` header。
 MD
 OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
 assert_eq "散文中の言及のみでも exit 1" "1" "$RC"
@@ -113,18 +114,18 @@ OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
 assert_eq "references/ 配下でも exit 1" "1" "$RC"
 assert_contains "references の違反が報告される" "skills/delta/references/create.md" "$OUT"
 
-# --- 5. HOW_TO_USE.md も走査対象 ---
+# --- 5. scripts/ 配下の md も走査対象 ---
 new_sandbox
-mkdir -p "$S/epsilon"
+mkdir -p "$S/epsilon/scripts"
 cat > "$S/epsilon/SKILL.md" <<'MD'
 # epsilon
 MD
-cat > "$S/epsilon/HOW_TO_USE.md" <<'MD'
+cat > "$S/epsilon/scripts/README.md" <<'MD'
 手動実行: `./scripts/render.sh`
 MD
 OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
-assert_eq "HOW_TO_USE.md でも exit 1" "1" "$RC"
-assert_contains "HOW_TO_USE の違反が報告される" "skills/epsilon/HOW_TO_USE.md" "$OUT"
+assert_eq "scripts/ 配下の md でも exit 1" "1" "$RC"
+assert_contains "scripts/README の違反が報告される" "skills/epsilon/scripts/README.md" "$OUT"
 
 # --- 6. md 以外 (scripts/*.sh のコメント等) は対象外 ---
 new_sandbox
@@ -183,10 +184,10 @@ cat > "$S/iota/SKILL.md" <<'MD'
 # iota
 ```sh
 node scripts/fetch-page.mjs "<URL>"
-bash scripts/enumerate-md.sh "$TARGET_DIR"
+bash scripts/list-files.sh "$TARGET_DIR"
 eval "$(sh scripts/parse-args.sh "$USER_INPUT")"
 timeout 90 node scripts/extract-text.mjs --in "$INPUT_PATH"
-OUTPUT_PATH=$(sh scripts/resolve-output-path.sh "$TARGET_DIR")
+OUTPUT_PATH=$(sh scripts/pick-output-path.sh "$TARGET_DIR")
 ```
 MD
 OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
@@ -206,13 +207,13 @@ mkdir -p "$S/kappa"
 cat > "$S/kappa/SKILL.md" <<'MD'
 # kappa
 ```sh
-scripts/preflight.sh --input-kind issue
+scripts/check-state.sh --input-kind issue
 scripts/import.sh input.csv
 scripts/render.sh
 timeout 90 scripts/slow.sh
-OUT=$(scripts/collect.sh)
+OUT=$(scripts/gather.sh)
 scripts/first.sh && scripts/next.sh
-if scripts/validate.sh "$CSV"; then :; fi
+if scripts/check-csv.sh "$CSV"; then :; fi
 ! scripts/check.sh
 FOO=bar scripts/env-prefixed.sh
 printf x | scripts/filter.sh
@@ -260,21 +261,19 @@ cat > "$S/lambda/SKILL.md" <<'MD'
 # lambda
 ユーザー入力を `scripts/parse-args.sh` に委譲する:
 > **フラグ・default の真実源 (SSOT) は `scripts/parse-flags.sh`** です。
-- 入力の分類は `scripts/classify-input.sh` が行う。
+- 入力の分類は `scripts/classify-input.mjs` が行う。
 MD
 cat > "$S/lambda/references/note.md" <<'MD'
-scripts/refresh-data.sh がこの出力とこの表の差分を出す。
+scripts/update-table.sh がこの出力とこの表の差分を出す。
 MD
 OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
 assert_eq "散文中の言及は検出せず exit 0" "0" "$RC"
 
-# --- 13. HOW_TO_USE の人間向け手動実行手順 (リポジトリ相対): PASS ---
+# --- 13. リポジトリ相対の手動実行手順: PASS ---
 new_sandbox
 mkdir -p "$S/mu"
 cat > "$S/mu/SKILL.md" <<'MD'
 # mu
-MD
-cat > "$S/mu/HOW_TO_USE.md" <<'MD'
 初回のみ手動で実行しておく:
 
 ```sh
@@ -293,7 +292,7 @@ cat > "$S/nu/SKILL.md" <<'MD'
 ```sh
 node "$SKILL_DIR/scripts/fetch-page.mjs" "<URL>"
 timeout 90 node "$SKILL_DIR/scripts/extract-text.mjs" --in "$INPUT_PATH"
-"$SKILL_DIR/scripts/preflight.sh" --input-kind issue
+"$SKILL_DIR/scripts/check-state.sh" --input-kind issue
 ```
 MD
 OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
@@ -314,6 +313,148 @@ node scripts/bench.js
 MD
 OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
 assert_eq "node_modules 配下は対象外なので exit 0" "0" "$RC"
+
+# 例外リストの機構を試すときに EVAL_EXEMPT_SCRIPTS へ渡す値 (既定の例外リストは空)。
+EXEMPT='get-version|detect-env|detect-id'
+
+# --- 16. eval "$(...)" の一発形: FAIL (規則 3) ---
+new_sandbox
+mkdir -p "$S/eta/references"
+cat > "$S/eta/SKILL.md" <<'MD'
+# eta
+```sh
+eval "$(node "$SKILL_DIR/scripts/parse-args.mjs" "$USER_INPUT")"
+```
+MD
+cat > "$S/eta/references/x.md" <<'MD'
+```sh
+if [ -n "$X" ]; then
+    eval "$(node "$SKILL_DIR/scripts/read-plan.mjs" --target "$X")"
+fi
+for t in a b; do
+    eval "$("$SKILL_DIR/scripts/read-plan.sh" "$t")"
+done
+[ -n "$X" ] && eval "$(node "$SKILL_DIR/scripts/read-plan.mjs")"
+if true; then eval "$(node "$SKILL_DIR/scripts/read-plan.mjs")"; fi
+```
+MD
+OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
+assert_eq "eval の一発形で exit 1" "1" "$RC"
+assert_contains "SKILL.md の行頭の一発形が報告される" "skills/eta/SKILL.md:3" "$OUT"
+assert_contains "インデント付きの一発形が報告される" "skills/eta/references/x.md:3" "$OUT"
+assert_contains "ループ内の一発形が報告される" "skills/eta/references/x.md:6" "$OUT"
+assert_contains "&& 直後の一発形が報告される" "skills/eta/references/x.md:8" "$OUT"
+assert_contains "then 直後の一発形が報告される" "skills/eta/references/x.md:9" "$OUT"
+assert_contains "エラーメッセージが 2 段化を案内する" "2 段" "$OUT"
+if printf '%s' "$OUT" | grep -q '常に exit 0'; then
+    printf '  FAIL: 例外が空なのに例外の案内が出ている\n'
+    fail=$((fail + 1))
+else
+    printf '  PASS: 例外が空なら例外の案内を出さない\n'
+    pass=$((pass + 1))
+fi
+
+# --- 17. eval の 2 段形・散文中の言及・例外の 3 スクリプトは PASS ---
+new_sandbox
+mkdir -p "$S/theta/references"
+cat > "$S/theta/SKILL.md" <<'MD'
+# theta
+```sh
+OUT=$(node "$SKILL_DIR/scripts/parse-args.mjs" "$USER_INPUT") || exit 1
+eval "$OUT"
+eval "$(node "$SKILL_DIR/scripts/get-version.mjs")"
+eval "$(node "$SKILL_DIR/scripts/detect-env.mjs")"
+    eval "$(node "$SKILL_DIR/scripts/detect-id.mjs" --host "$HOST_SLUG")"
+```
+
+`eval "$(node "$SKILL_DIR/scripts/parse-args.mjs")"` ではなく 2 段で書く。
+- 一発形の `eval "$(...)"` は失敗を見逃すので使わない
+MD
+cat > "$S/theta/references/x.md" <<'MD'
+散文中の言及 `eval "$(node "$SKILL_DIR/scripts/foo.mjs")"` は検出しない。
+MD
+OUT=$(sh "$SCRIPT" "$S" 2>&1); RC=$?
+assert_eq "例外リストが空 (既定) なら例外スクリプトの一発形も exit 1" "1" "$RC"
+assert_contains "既定では例外スクリプトの一発形が報告される" "skills/theta/SKILL.md:5" "$OUT"
+OUT=$(EVAL_EXEMPT_SCRIPTS="$EXEMPT" sh "$SCRIPT" "$S" 2>&1); RC=$?
+assert_eq "2 段形・散文・例外スクリプトは exit 0" "0" "$RC"
+assert_contains "PASS が出力される" "lint-script-invocation: PASS" "$OUT"
+
+# --- 18. 例外スクリプトと一発形が同じファイルにあるとき、一発形だけ報告 ---
+new_sandbox
+mkdir -p "$S/iota2"
+cat > "$S/iota2/SKILL.md" <<'MD'
+# iota2
+```sh
+eval "$(node "$SKILL_DIR/scripts/get-version.mjs")"
+eval "$(node "$SKILL_DIR/scripts/create-issue.mjs" "$F")"
+```
+MD
+OUT=$(EVAL_EXEMPT_SCRIPTS="$EXEMPT" sh "$SCRIPT" "$S" 2>&1); RC=$?
+assert_eq "例外外の一発形が混ざると exit 1" "1" "$RC"
+assert_contains "例外外の一発形が報告される" "skills/iota2/SKILL.md:4" "$OUT"
+assert_contains "例外があるときは例外の理由を示す" "常に exit 0" "$OUT"
+if printf '%s' "$OUT" | grep -q 'SKILL.md:3:'; then
+    printf '  FAIL: 例外スクリプトの行が報告されている\n'
+    fail=$((fail + 1))
+else
+    printf '  PASS: 例外スクリプトの行は報告されない\n'
+    pass=$((pass + 1))
+fi
+
+# --- 19. 同じ行の例外と禁止対象 / インラインコード内の区切り文字 ---
+new_sandbox
+mkdir -p "$S/kappa2"
+cat > "$S/kappa2/SKILL.md" <<'MD'
+# kappa2
+```sh
+eval "$(node "$SKILL_DIR/scripts/parse-args.mjs")"; eval "$(node "$SKILL_DIR/scripts/detect-env.mjs")"
+```
+MD
+cat > "$S/kappa2/x.md" <<'MD'
+散文の `true; eval "$(node "$SKILL_DIR/scripts/parse-args.mjs")"` の説明。
+MD
+OUT=$(EVAL_EXEMPT_SCRIPTS="$EXEMPT" sh "$SCRIPT" "$S" 2>&1); RC=$?
+assert_eq "同じ行に例外と禁止対象があると exit 1" "1" "$RC"
+assert_contains "同じ行の禁止対象が報告される" "skills/kappa2/SKILL.md:3" "$OUT"
+if printf '%s' "$OUT" | grep -q 'kappa2/x.md'; then
+    printf '  FAIL: インラインコード内の区切り文字が実行文と判定された\n'
+    fail=$((fail + 1))
+else
+    printf '  PASS: インラインコード内の区切り文字は検出しない\n'
+    pass=$((pass + 1))
+fi
+
+# --- 20. 複合コマンド内の例外名 / 行頭の条件構文 ---
+new_sandbox
+mkdir -p "$S/lambda"
+cat > "$S/lambda/SKILL.md" <<'MD'
+# lambda
+```sh
+eval "$(node "$SKILL_DIR/scripts/detect-env.mjs"; node "$SKILL_DIR/scripts/parse-args.mjs")"
+if eval "$(node "$SKILL_DIR/scripts/parse-args.mjs")"; then
+while eval "$(node "$SKILL_DIR/scripts/parse-args.mjs")"; do
+until eval "$(node "$SKILL_DIR/scripts/parse-args.mjs")"; do
+eval "$(node "$SKILL_DIR/scripts/parse-args.mjs" --output "$SKILL_DIR/scripts/detect-env.mjs")"
+eval "$(node "$SKILL_DIR/scripts/detect-env.mjs.bak")"
+```
+MD
+OUT=$(EVAL_EXEMPT_SCRIPTS="$EXEMPT" sh "$SCRIPT" "$S" 2>&1); RC=$?
+assert_eq "複合コマンドと条件構文の一発形で exit 1" "1" "$RC"
+assert_contains "例外名を含む複合コマンドが報告される" "skills/lambda/SKILL.md:3" "$OUT"
+assert_contains "行頭の if が報告される" "skills/lambda/SKILL.md:4" "$OUT"
+assert_contains "行頭の while が報告される" "skills/lambda/SKILL.md:5" "$OUT"
+assert_contains "行頭の until が報告される" "skills/lambda/SKILL.md:6" "$OUT"
+assert_contains "引数に例外名があるだけの呼び出しが報告される" "skills/lambda/SKILL.md:7" "$OUT"
+assert_contains "接尾辞付きの別ファイルが報告される" "skills/lambda/SKILL.md:8" "$OUT"
+
+# --- 21. 不正な EVAL_EXEMPT_SCRIPTS は実行エラー ---
+new_sandbox
+mkdir -p "$S/mu2"
+printf '# mu2\n' > "$S/mu2/SKILL.md"
+OUT=$(EVAL_EXEMPT_SCRIPTS='a.*' sh "$SCRIPT" "$S" 2>&1); RC=$?
+assert_eq "正規表現の記号を含む例外リストは exit 1" "1" "$RC"
+assert_contains "例外リストの書式を案内する" "EVAL_EXEMPT_SCRIPTS" "$OUT"
 
 echo
 printf 'pass=%d fail=%d\n' "$pass" "$fail"
