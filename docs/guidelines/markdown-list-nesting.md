@@ -10,7 +10,7 @@
 
 - `skills/**/references/*.md` の生成テンプレート、および skill が生成する markdown 成果物
 - `docs/` 配下のドキュメント
-- `AGENTS.md` / `README.md` / `HOW_TO_USE.md` 等のガバナンス系ドキュメント
+- `AGENTS.md` / `README.md` 等のガバナンス系ドキュメント
 - 対象外: GFM 表セル (`|...|`) 内の詰め込み、shell script 内のヒアドキュメント、コードブロック内、外部から取り込んだ引用 (原文表記を優先)
 
 GFM 表セル内は行構造の制約からネスト list を挿入できないため本ガイドラインの対象外とする。表構造そのものの見直しが必要な場合は skill ごとに個別判断する。
@@ -124,4 +124,5 @@ markdown template を新規作成・更新した際は以下を実施する:
 ## 関連
 
 - [`markdown-punctuation.md`](markdown-punctuation.md) — 括弧の全角/半角ルール
+- [`markdown-output-length.md`](markdown-output-length.md) — markdown 成果物の分量較正
 - [`skill-design.md`](skill-design.md) — skill 設計原則

@@ -32,7 +32,7 @@ skill の frontmatter に書ける `model` / `effort` は **Claude Code 固有�
 したがって:
 
 - 成果物が冗長 / 薄いという問題を `effort` の上下で解決しようとしない。`effort` を下げてもテンプレートの全節を埋める挙動は変わらないことが多い
-- 分量は prompt 側の較正文で制御する。成果物を書き出す skill では、出力テンプレートの冒頭に水増しを抑止する短い較正文を 1 箇所だけ置く
+- 分量は prompt 側の較正文で制御する。markdown 成果物の分量較正ルールは [`markdown-output-length.md`](markdown-output-length.md) を SSOT とする
 - 節数そのものを減らしたい場合はテンプレート側(`references/` の出力 template や SKILL.md 本文の出力構造定義)を変更する
 
 ### 低 effort の品質は世代を追って向上している

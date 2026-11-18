@@ -10,7 +10,7 @@
 
 - `skills/**/references/*.md` の生成テンプレート、および skill が生成する markdown 成果物
 - `docs/` 配下のドキュメント
-- `AGENTS.md` / `README.md` / `HOW_TO_USE.md` 等のガバナンス系ドキュメント
+- `AGENTS.md` / `README.md` 等のガバナンス系ドキュメント
 
 ## 具体ルール
 
@@ -82,4 +82,5 @@ sh ./bin/lint-markdown-punctuation.sh --fix    # 全角括弧を半角へ一括�
 ## 関連
 
 - [`markdown-list-nesting.md`](markdown-list-nesting.md) — リスト項目のネスト規約
+- [`markdown-output-length.md`](markdown-output-length.md) — markdown 成果物の分量較正
 - [`skill-design.md`](skill-design.md) — skill 設計原則

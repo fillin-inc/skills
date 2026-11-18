@@ -8,7 +8,7 @@
 #
 # しきい値:
 #   - HARD_LIMIT: 32,768 bytes (Codex 既定)。超過は fail (exit 1)
-#   - SOFT_LIMIT: 31,000 bytes (残 ~1.7 KiB)。超過は warn (exit 0)
+#   - SOFT_LIMIT: 28,672 bytes (28 KiB。4 KiB 以上の追記余地を確保)。超過は warn (exit 0)
 #
 # 使い方: sh ./bin/lint-agents-md-size.sh
 #   AGENTS.md パスは第 1 引数で上書きできる (テスト用途):
@@ -18,7 +18,7 @@ set -eu
 
 TARGET="${1:-AGENTS.md}"
 HARD_LIMIT=32768
-SOFT_LIMIT=31000
+SOFT_LIMIT=28672
 
 if [ ! -f "$TARGET" ]; then
     echo "lint-agents-md-size: SKIP ($TARGET が見つかりません)"

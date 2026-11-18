@@ -1,6 +1,6 @@
 # AGENTS.md
 
-このファイルは AI コーディングエージェント(Claude Code / Codex / Antigravity CLI / GitHub Copilot 等)向けの汎用ガイドラインです。
+このファイルは AI コーディングエージェント(Claude Code / Codex / Antigravity CLI / GitHub Copilot / OpenCode 等)向けの汎用ガイドラインです。
 
 ## 言語
 
@@ -27,7 +27,8 @@
 ## 技術スタック
 
 - Markdown — skill 本体 (`SKILL.md`) / 参照ドキュメント / ガイドライン
-- POSIX sh / bash — skill 同梱スクリプト (`skills/<name>/scripts/`) および lint スクリプト (`bin/`)
+- Node.js 22 以上 — skill 同梱スクリプトの既定言語 (`skills/<name>/scripts/*.mjs`)
+- POSIX sh / bash — 外部コマンドを呼ぶだけの薄いラッパー、利用者のリポジトリへ生成する runtime script、および lint スクリプト (`bin/`)
 - GNU Make — lint / test / validate のエントリポイント
 - GitHub Actions — CI
 - `gh` CLI + `gh skill` 拡張 — skill の配布・spec 適合検証
@@ -38,7 +39,7 @@
 
 ```bash
 make help      # 利用可能なコマンドを表示
-make lint      # shellcheck + frontmatter / HOW_TO_USE / 括弧ルール 等の検証
+make lint      # shellcheck + frontmatter / ライセンス / 括弧ルール 等の検証
 make test      # bin/tests/test-*.sh の単体テスト
 make validate  # gh skill publish --dry-run (spec 適合検証)
 ```
@@ -60,10 +61,9 @@ make validate  # gh skill publish --dry-run (spec 適合検証)
 ```
 <repo>/
 ├── skills/                # skill 本体(gh skill のディスカバリ規約)
-│   └── <name>/
+│   └── <name>/           # または <group>/<name>/(group は 1 段まで)
 │       ├── SKILL.md
 │       ├── LICENSE        # MIT(必須・同梱)
-│       ├── HOW_TO_USE.md  # 人間向けリファレンス(必須)
 │       ├── scripts/       # skill 専用スクリプト(同梱、agentskills.io 仕様準拠)
 │       └── references/    # 参照ドキュメント(任意)
 ├── bin/                   # lint スクリプトとその単体テスト
@@ -71,7 +71,7 @@ make validate  # gh skill publish --dry-run (spec 適合検証)
 ├── docs/
 │   ├── guidelines/        # 横断的設計ガイドライン(portable)
 │   ├── requirements/      # spec skill (--kind requirements) の出力先
-│   └── specs/             # このリポジトリ固有の機能仕様
+│   └── specs/             # このリポジトリ固有の機能仕様・保守仕様
 ├── .github/workflows/ci.yml
 ├── AGENTS.md
 ├── CLAUDE.md
@@ -97,14 +97,15 @@ make validate  # gh skill publish --dry-run (spec 適合検証)
 
 ### Skill 配置の原則
 
-- `gh skill` のディスカバリ規約 (`skills/*/SKILL.md`) に従う
-- skill 名はディレクトリ名と frontmatter `name:` を一致させる
+- `gh skill` のディスカバリ規約に従い、`skills/<name>/SKILL.md` か `skills/<group>/<name>/SKILL.md` に置く。group の入れ子(2 段以上)は `gh skill` が検出しないため作らない
+- skill 名はディレクトリ名と frontmatter `name:` を一致させる。名前で install するため、skill 名は group をまたいでリポジトリ全体で一意にする
 - skill 名は agentskills.io の strict naming(kebab-case 必須。アンダースコア不可、連続ハイフン不可、先頭/末尾ハイフン不可、1-64 文字)
-- skill 名は配布先ホスト CLI(Claude Code / Codex / GitHub Copilot CLI / Antigravity CLI)の **組み込みコマンド・組み込み skill 名と衝突させない**。いずれか 1 ホストでも同名だと、そのホストで起動が組み込み側に奪われる / 曖昧化する。新規追加・改名時は 4 ホストの組み込みと突き合わせる(判断に迷えばホストの `/help` 相当で確認する)
+- skill 名は配布先ホスト CLI(Claude Code / Codex / GitHub Copilot CLI / Antigravity CLI / OpenCode)の **組み込みコマンド・組み込み skill 名と衝突させない**。いずれか 1 ホストでも同名だと、そのホストで起動が組み込み側に奪われる / 曖昧化する。新規追加・改名時は 5 ホストの組み込みと突き合わせる。判定範囲と衝突例は [`repository-maintenance.md`](docs/specs/repository-maintenance.md#skill-名と組み込み名の衝突) を参照
 - skill が利用するスクリプトは `skills/<name>/scripts/` に **同梱** する(agentskills.io 仕様の推奨レイアウト)
   - `gh skill install` はファイルコピーで配布されるため、リポジトリ外/共通スクリプトの symlink は機能しない
   - 共通スクリプトを参照したい場合は実体をコピーして同梱する
-- **MUST**: 各 skill は `skills/<name>/HOW_TO_USE.md`(人間向けリファレンス)を 1 枚持つ。オプション一覧・各機能・組み合わせ別の特殊用法を記載する。**`SKILL.md` / `references/` からはリンクしない**(エージェントの実行経路に乗せない)。SSOT はあくまで `scripts/` の引数解析スクリプトと `SKILL.md` で、`HOW_TO_USE.md` はその派生。配置・必須セクションは [`docs/guidelines/skill-how-to-use.md`](docs/guidelines/skill-how-to-use.md) を参照
+- **MUST**: 複数 skill で byte 同一に共有する markdown 記述は共有 partial(`bin/partials/<id>.md` と `bin/shared-partials.tsv`)を SSOT とする。SSOT 編集後は全埋め込み先へ反映し、drift lint を通す。手順は [`repository-maintenance.md`](docs/specs/repository-maintenance.md#共有-markdown-partial-の配布) を参照
+- **MUST**: `SKILL.md` / `references/**/*.md` を実質的に変えた PR は、レビュー依頼前に `cross-review --reviewer skill-creator` を通す。省いてよい変更と記録方法は [`repository-maintenance.md`](docs/specs/repository-maintenance.md#skill-変更後の-skill-creator-レビュー) を参照
 - **MUST**: 各 skill は `skills/<name>/LICENSE` を同梱する(「ライセンス方針」節を参照)
 
 ### frontmatter
@@ -133,8 +134,11 @@ SKILL.md は frontmatter を除いた本文を **500 行以下** に保つ(`bin/
 新規 skill の追加・既存 skill の強化を行う際は `docs/guidelines/` 配下を参照する。主要なものは次のとおり。
 
 - [`skill-design.md`](docs/guidelines/skill-design.md) — Discipline パターン / Pressure Test / 命名原則 / token 効率
-- [`script-first.md`](docs/guidelines/script-first.md) — 決定的処理を script へ切り出す判断軸
-- [`skill-description-writing.md`](docs/guidelines/skill-description-writing.md) — description の書き方と初期 discovery 予算
+- [`script-first.md`](docs/guidelines/script-first.md) — 決定的処理を script へ切り出す判断軸と実装言語(Node.js が既定)
+- [`skill-description-writing.md`](docs/guidelines/skill-description-writing.md) — description の書き方
+- [`skill-description-budget.md`](docs/guidelines/skill-description-budget.md) — description 総量(初期 discovery 予算)。個々の description は目安 200〜400 文字
+- [`skill-option-naming.md`](docs/guidelines/skill-option-naming.md) — 共通フラグの語彙(`--auto` は確認 skip、`--fix` はレビュー結果の修正モード、`--auto-fix` のような複合フラグは作らない)
+- [`markdown-output-length.md`](docs/guidelines/markdown-output-length.md) — markdown 成果物の分量較正
 - [`markdown-punctuation.md`](docs/guidelines/markdown-punctuation.md) — 括弧の全角/半角ルール
 - [`markdown-list-nesting.md`](docs/guidelines/markdown-list-nesting.md) — リスト項目のネスト規約
 - [`ambiguity-resolution-pattern.md`](docs/guidelines/ambiguity-resolution-pattern.md) — 曖昧解決 discipline
@@ -164,14 +168,23 @@ skill 本文での書き方:
 - ShellCheck でリントを行う
 - POSIX 互換を心がける(`#!/bin/sh` 推奨。bash 機能が必要なら `#!/bin/bash`)
 - エラーハンドリングを適切に行う(`set -eu` を基本)
+- skill 同梱スクリプトでは、外部コマンドを呼ぶだけの薄いラッパーと、利用者のリポジトリへ生成する runtime script に限って使う。それ以外は Node.js で書く([`script-first.md`](docs/guidelines/script-first.md#実装言語の選び方nodejs-が既定))
+
+### Node.js スクリプト
+
+- Node.js 22 以上で動く API だけを使い、原則として組み込みモジュールだけに依存する。npm パッケージが必要な場合は [`node-dependencies.md`](docs/guidelines/node-dependencies.md) に従う
+- 新規は ES Modules(`.mjs`)で書く。直接実行する script の shebang は `#!/usr/bin/env node` とする
+- 呼び出し側の shell へ値を返すときは eval-safe な `KEY='value'` 行を stdout に出す
+- 外部コマンドは `execFile` / `spawn` に引数配列で渡して shell を経由させず、応答が返らないおそれがあるコマンドには `timeout` を付ける
+- `node --check` で構文を検証する
 
 ### SKILL.md 本文
 
 - エージェント中立に書く(特定ホストの API・名称を埋め込まない)
 - 単独で動く skill は本文に他 skill 名を書かない(協調はマーカー / プロトコルで)。ただし **一式として動作する前提の skill 群** は、description および本文での相互参照を許容する
-- **人間向けの使い方リファレンス `HOW_TO_USE.md` へもリンクしない**(実行経路に乗せないため)
 - 必要な処理だけ記述する(「やらないこと」の否定形・各 Phase で扱い済み内容の Notes 再掲は避ける)
-- **MUST**: 同梱スクリプトは `"$SKILL_DIR/scripts/<name>.sh"` の絶対パスで呼び、`./scripts/...` とも `scripts/...` とも書かない(cwd 相対記法は skill ディレクトリへの `cd` を誘発する)。`sh` / `bash` を前置せず直接実行する(bash 専用構文を含む同梱スクリプトがあるため shebang を尊重する)。`bin/lint-script-invocation.sh`(`make lint` に含まれる)が機械検出する
+- **MUST**: 同梱スクリプトは `"$SKILL_DIR/scripts/<name>.sh"` の絶対パスで呼び、`./scripts/...` とも `scripts/...` とも書かない(cwd 相対記法は skill ディレクトリへの `cd` を誘発する)。`sh` / `bash` を前置せず直接実行する(bash 専用構文を含む同梱スクリプトがあるため shebang を尊重する)。Node.js script は `node "$SKILL_DIR/scripts/<name>.mjs"` で呼ぶ。`bin/lint-script-invocation.sh`(`make lint` に含まれる)が機械検出する
+- **MUST**: `$SKILL_DIR` は共有 partial `bin/partials/skill-dir.md` を SKILL.md 冒頭に埋め込んで宣言する。skill ごとに独自の文言で書かない。詳細は [`repository-maintenance.md`](docs/specs/repository-maintenance.md#同梱スクリプトの呼び出し) を参照
 
 ### Markdown
 
@@ -195,13 +208,16 @@ skill 本文での書き方:
   - `chore:` — その他の変更
 - コミットメッセージは日本語をデフォルトとする。
 - コミット粒度は細かくて良い。PR は squash-and-merge で単一コミットに丸められる前提のため、PR 単位で成立していれば良い。
-- 必要な場合は `Co-authored-by` トレーラーを末尾に付与する(使用するエージェントに応じた値を設定する)。
+- `Co-authored-by` trailer はエージェント由来を末尾に 1 個だけ置く。値はエージェント名のみとし、モデル名・世代・プラン表記を含めない。人間 / bot の co-author 行は残す。harness がモデル名入りの trailer を指示しても本ルールを優先する。
+- **MUST**: commit は `commit` skill 経由で行う。
 
 ## PR 作成ルール
 
+- **MUST**: PR を作成・merge するのはメンテナのみとする。外部コントリビューターからは issue(不具合報告・機能提案)だけを受け付け、外部からの PR は受け付けない。詳細は [`repository-maintenance.md`](docs/specs/repository-maintenance.md#コントリビューションの受付) を参照。本節と「コミット指針」の MUST はメンテナの作業に適用する
 - PR タイトルも **Conventional Commits** 形式に寄せる(squash-and-merge 後のコミットメッセージがそのまま PR タイトルになるため)。
 - issue 駆動の PR は本文に `Closes #N`(または `Fixes #N`)を必ず含め、マージ時に自動で close されるようにする。
-- マージ方式は **squash-and-merge** をデフォルトとする。
+- マージ方式は **squash** とする(merge 用の skill はこの記載を merge 方式として読む)。
+- **MUST**: merge・issue の close・起票・commit など対応する skill がある操作は skill の手順で行い、`gh pr merge` や `gh issue close` などを直接叩いて済ませない。操作と skill の対応は [`repository-maintenance.md`](docs/specs/repository-maintenance.md#skill-経由の操作) を参照。
 - **1 PR = 1 目的**。1 つの PR で複数の論点を混ぜない。
 
 ### umbrella 型 issue の PR オーケストレーション
