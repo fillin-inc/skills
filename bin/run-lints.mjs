@@ -15,6 +15,7 @@ const DEFAULT_STEPS = [
   "find skills -name '*.sh' -type f -exec shellcheck {} +",
   "sh ./bin/lint-frontmatter.sh",
   "sh ./bin/lint-license.sh",
+  "sh ./bin/lint-shared-partials.sh",
   "sh ./bin/lint-script-invocation.sh",
   "sh ./bin/lint-agents-md-size.sh",
   "sh ./bin/lint-markdown-punctuation.sh",

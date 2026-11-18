@@ -211,7 +211,7 @@ if [ -s "$FOUND" ]; then
     # shellcheck disable=SC2016
     echo '  skill ディレクトリ基準の絶対パス "$SKILL_DIR/scripts/<name>.sh" に書き換えてください。' >&2
     # shellcheck disable=SC2016
-    echo '  $SKILL_DIR は SKILL.md 冒頭で宣言します。' >&2
+    echo '  $SKILL_DIR の宣言は bin/partials/skill-dir.md を SKILL.md 冒頭に埋め込みます。' >&2
     echo "" >&2
     sed "s|^$SKILLS_DIR/|skills/|" "$FOUND" >&2
 fi
