@@ -3,7 +3,7 @@
 #
 # 検証内容:
 #   - リポジトリルートに LICENSE が存在する
-#   - 各 skills/<name>/ に LICENSE が同梱されている
+#   - 各 skill (skills/<name>/ または skills/<group>/<name>/) に LICENSE が同梱されている
 #     (gh skill install はファイルコピー配布のため、ルートの LICENSE は配布先に存在しない)
 #   - 各 SKILL.md の frontmatter に license フィールドがある
 #   - frontmatter の license が MIT の skill は、同梱 LICENSE が MIT License 本文であること
@@ -24,8 +24,10 @@ fi
 
 [ -d skills ] || { echo "license: ok (no skills/ directory)"; exit 0; }
 
-for file in $(find skills -mindepth 2 -maxdepth 2 -name SKILL.md | sort); do
+for file in $(find skills -mindepth 2 -maxdepth 3 -name SKILL.md | sort); do
   dir=$(dirname "$file")
+  # skills/<a>/<b>/SKILL.md は <a> が group (SKILL.md を持たない) のときだけ skill とみなす
+  case "$dir" in skills/*/*) [ -f "${dir%/*}/SKILL.md" ] && continue ;; esac
 
   if [ ! -f "$dir/LICENSE" ]; then
     emit_err "$(printf '%s: missing bundled LICENSE (required by this repository, see AGENTS.md)' "$dir")"

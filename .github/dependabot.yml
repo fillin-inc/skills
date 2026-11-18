@@ -1,0 +1,29 @@
+# リポジトリ直下と skill 同梱の Node.js 依存を月次で更新する Dependabot 設定。
+#
+# 対象 skill を個別に列挙せず directories の glob(skills/<name>/ と
+# skills/<group>/<name>/ の 2 通り)で拾うため、新規に lockfile を
+# 持つ skill を追加しても本ファイルの更新は不要。
+#
+# npx / pnpm dlx で実行時取得する依存は lockfile を持たないため Dependabot の対象外。
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directories:
+      - "/"
+      - "/skills/*/scripts"
+      - "/skills/*/*/scripts"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    # 更新を 1 本の PR にまとめ、skill 間の版ずれをレビューで検知しやすくする。
+    groups:
+      node-deps:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope

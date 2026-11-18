@@ -26,6 +26,21 @@ assert_eq() {
     fi
 }
 
+assert_contains() {
+    _name=$1
+    _expected=$2
+    _file=$3
+    if grep -Fq -- "$_expected" "$_file"; then
+        printf '  PASS: %s\n' "$_name"
+        pass=$((pass + 1))
+    else
+        printf '  FAIL: %s\n' "$_name"
+        printf '    expected output to contain: %s\n' "$_expected"
+        cat "$_file" >&2
+        fail=$((fail + 1))
+    fi
+}
+
 TMPROOT=$(mktemp -d)
 trap 'rm -rf "$TMPROOT"' EXIT
 
@@ -423,7 +438,7 @@ cat >"$ROOT/license-quoted/SKILL.md" <<'EOF'
 ---
 name: license-quoted
 description: x
-license: MIT
+license: "Apache-2.0 OR MIT"
 ---
 EOF
 set +e
@@ -465,6 +480,113 @@ run_in "$ROOT"
 ec=$?
 set -e
 assert_eq "case26: body == 501 lines => exit 1" "1" "$ec"
+
+# case 27: 先頭 delimiter がない → exit 1
+ROOT=$(new_root)
+mkdir -p "$ROOT/no-opening-delimiter"
+cat >"$ROOT/no-opening-delimiter/SKILL.md" <<'EOF'
+name: no-opening-delimiter
+description: x
+license: MIT
+---
+EOF
+set +e
+(cd "$ROOT" && "$SCRIPT" >/dev/null 2>"$TMPROOT/case27.stderr")
+ec=$?
+set -e
+assert_eq "case27: missing opening delimiter => exit 1" "1" "$ec"
+assert_contains "case27b: opening delimiter diagnostic" \
+    "first line must be the opening frontmatter delimiter" "$TMPROOT/case27.stderr"
+
+# case 28: closing delimiter がない → exit 1
+ROOT=$(new_root)
+mkdir -p "$ROOT/no-closing-delimiter"
+cat >"$ROOT/no-closing-delimiter/SKILL.md" <<'EOF'
+---
+name: no-closing-delimiter
+description: x
+license: MIT
+EOF
+set +e
+(cd "$ROOT" && "$SCRIPT" >/dev/null 2>"$TMPROOT/case28.stderr")
+ec=$?
+set -e
+assert_eq "case28: missing closing delimiter => exit 1" "1" "$ec"
+assert_contains "case28b: closing delimiter diagnostic" \
+    "missing closing frontmatter delimiter" "$TMPROOT/case28.stderr"
+
+# case 29: YAML 構文が不正 → exit 1
+ROOT=$(new_root)
+mkdir -p "$ROOT/invalid-yaml"
+cat >"$ROOT/invalid-yaml/SKILL.md" <<'EOF'
+---
+name: invalid-yaml
+description: "unterminated
+license: MIT
+---
+EOF
+set +e
+(cd "$ROOT" && "$SCRIPT" >/dev/null 2>"$TMPROOT/case29.stderr")
+ec=$?
+set -e
+assert_eq "case29: invalid YAML => exit 1" "1" "$ec"
+assert_contains "case29b: YAML syntax diagnostic" \
+    "invalid YAML" "$TMPROOT/case29.stderr"
+
+# case 30: トップレベルキーが重複 → exit 1
+ROOT=$(new_root)
+mkdir -p "$ROOT/duplicate-key"
+cat >"$ROOT/duplicate-key/SKILL.md" <<'EOF'
+---
+name: duplicate-key
+name: duplicate-key
+description: x
+license: MIT
+---
+EOF
+set +e
+(cd "$ROOT" && "$SCRIPT" >/dev/null 2>"$TMPROOT/case30.stderr")
+ec=$?
+set -e
+assert_eq "case30: duplicate top-level key => exit 1" "1" "$ec"
+assert_contains "case30b: duplicate key diagnostic" \
+    "DUPLICATE_KEY" "$TMPROOT/case30.stderr"
+
+# case 31: 文字列ではない license → exit 1
+ROOT=$(new_root)
+mkdir -p "$ROOT/invalid-license"
+cat >"$ROOT/invalid-license/SKILL.md" <<'EOF'
+---
+name: invalid-license
+description: x
+license: 123
+---
+EOF
+set +e
+(cd "$ROOT" && "$SCRIPT" >/dev/null 2>"$TMPROOT/case31.stderr")
+ec=$?
+set -e
+assert_eq "case31: invalid license value => exit 1" "1" "$ec"
+assert_contains "case31b: license value diagnostic" \
+    "license must be a non-empty string" "$TMPROOT/case31.stderr"
+
+# case 32: nested mapping を含む有効な YAML → exit 0
+ROOT=$(new_root)
+mkdir -p "$ROOT/nested-metadata"
+cat >"$ROOT/nested-metadata/SKILL.md" <<'EOF'
+---
+name: nested-metadata
+description: x
+license: MIT
+metadata:
+  github-path: skills/nested-metadata
+---
+EOF
+set +e
+run_in "$ROOT"
+ec=$?
+set -e
+assert_eq "case32: valid nested YAML => exit 0" "0" "$ec"
 
 echo ""
 printf 'passed: %d, failed: %d\n' "$pass" "$fail"
