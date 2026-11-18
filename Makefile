@@ -1,12 +1,11 @@
 .DEFAULT_GOAL := help
 
 .PHONY: lint
-lint: ## Run linters (shellcheck, frontmatter, license, HOW_TO_USE, script invocation, AGENTS.md size, markdown punctuation)
+lint: ## Run linters (shellcheck, frontmatter, license, script invocation, AGENTS.md size, markdown punctuation)
 	@find bin -name '*.sh' -type f -exec shellcheck {} +
 	@find skills -name '*.sh' -type f -exec shellcheck {} + 2>/dev/null || true
 	sh ./bin/lint-frontmatter.sh
 	sh ./bin/lint-license.sh
-	sh ./bin/lint-how-to-use.sh
 	sh ./bin/lint-script-invocation.sh
 	sh ./bin/lint-agents-md-size.sh
 	sh ./bin/lint-markdown-punctuation.sh

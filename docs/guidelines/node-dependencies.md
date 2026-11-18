@@ -2,13 +2,20 @@
 
 skill が Node.js パッケージ (`playwright-core` / `@mermaid-js/mermaid-cli` 等) に依存する場合の運用ルール。
 
+## 実行ホストの Node.js 前提
+
+skill を実行するホストは Node.js 22 以上を備える前提とする。skill 同梱の Node.js script は Node.js 22 で動く API だけを使う。
+
+- 利用者の PC で動くホスト(Claude Code / Codex CLI / Copilot CLI 等)は、PC に Node.js 22 以上が入っていることを前提にする
+- pnpm は前提にしない。npm パッケージを使う skill は下の「設計ルール」の npm fallback で動かす
+
 ## 設計ルール
 
 - **パッケージマネージャは pnpm > npm/npx の優先順位**で選ぶ。`command -v pnpm` で検出して `pnpm install` / `pnpm exec` / `pnpm dlx` を使い、無ければ `npm install` / `npx` に fallback する。skill 本文に「`npm install ...`」と固定で書かない (pnpm 派のユーザー環境を不要に二重インストールさせない)
 - **ブラウザ自動化では `playwright` ではなく `playwright-core` を使う**。`chromium.launch({ channel: "chrome" })` で system Chrome を優先起動する設計なら、`playwright` パッケージの postinstall によるブラウザ一括ダウンロード (数百 MB) は不要。API は完全に同一で、`playwright-core` に置き換えても launch 挙動は変わらない。Chrome 不在時の fallback は preflight スクリプトが明示的に `pnpm exec playwright-core install chromium` / `npx playwright-core install chromium` を実行して補う
-- **未インストール時は処理を停止せず自動 install してから継続する**。`echo "error: playwright-core がインストールされていません" >&2; exit 1` のように案内だけして止めない。`scripts/check-deps.sh` や `scripts/ensure-playwright.sh` のような preflight スクリプトを用意し、pnpm > npm fallback で本体と Chromium を自動取得する
+- **未インストール時は処理を停止せず自動 install してから継続する**。`echo "error: playwright-core がインストールされていません" >&2; exit 1` のように案内だけして止めない。`scripts/ensure-node-deps.mjs` のような preflight スクリプトを Node.js(組み込みモジュールのみ)で用意し、pnpm > npm fallback で本体と Chromium を自動取得する
 - **install 先は `skills/<name>/scripts/node_modules/`(package.json 同梱型)に統一する**。`~/.cache/<name>/node_modules/` + `NODE_PATH` のアプローチは **`.mjs` の `await import("playwright-core")` から解決できない** (Node の ESM resolver は `NODE_PATH` を参照しないため `ERR_MODULE_NOT_FOUND` になる)。CommonJS `.js` から `require('playwright-core')` する場合のみ `NODE_PATH` で代用してよい
-- **preflight の呼び出しは `"$SKILL_DIR/scripts/ensure-playwright.sh" || exit 69` の形にする**。`eval "$("$SKILL_DIR/scripts/ensure-playwright.sh")" || exit 69` は subshell が exit 非 0 で stdout が空でも eval が成功扱いになり `|| exit 69` が発火しない。preflight が stdout で env を返す必要があるなら `OUT=$("$SKILL_DIR/scripts/ensure-playwright.sh") || exit 69; eval "$OUT"` の形に分解する
+- **preflight の呼び出しは `node "$SKILL_DIR/scripts/ensure-node-deps.mjs" || exit 69` の形にする**。`eval "$(node "$SKILL_DIR/scripts/ensure-node-deps.mjs")" || exit 69` は subshell が exit 非 0 で stdout が空でも eval が成功扱いになり `|| exit 69` が発火しない。preflight が stdout で env を返す必要があるなら `OUT=$(node "$SKILL_DIR/scripts/ensure-node-deps.mjs") || exit 69; eval "$OUT"` の形に分解する
 - **system Chrome 検出 → Chromium 取得 skip** のショートカットを入れる。`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` および `google-chrome` / `google-chrome-stable` のいずれかが存在すれば Chromium ダウンロードを省く
 - **`package.json` は caret pin (例: `"playwright-core": "^1.61.0"`) し、lockfile は commit する**。auto-install は「新規環境で何もせずに動かす」ためのもので、バージョン更新は別の関心事。lockfile を gitignore して初回 install 任せにすると、ローカルに残る lockfile が永続 pin として効いてしまい「全員バラバラのバージョンで動く」「初回 install したバージョンに永続固定される」のどちらかになる
 - **バージョン更新は明示的に**。日常の skill 実行では勝手に更新が走らないようにし、更新は専用の PR でレビューする
