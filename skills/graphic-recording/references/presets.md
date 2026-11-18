@@ -1,6 +1,6 @@
 # 画風とレイアウトのプリセット
 
-`parse-options.sh` が解決した `TONE` / `ORIENTATION` に対応する節だけを使い、SKILL.md Phase 3 のプロンプトへそのまま貼り込む。
+`parse-options.mjs` が解決した `TONE` / `ORIENTATION` に対応する節だけを使い、SKILL.md Phase 3 のプロンプトへそのまま貼り込む。
 
 ## トーン: business
 

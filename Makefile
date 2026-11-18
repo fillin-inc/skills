@@ -32,7 +32,7 @@ install-skill-node-deps: ## Install Node.js dependencies of skills that commit a
 	done
 
 .PHONY: lint
-lint: ## Run linters in parallel (JOBS=N to set concurrency): shellcheck, frontmatter, license, script invocation, AGENTS.md size, markdown punctuation, skill test placement, Node.js syntax
+lint: ## Run linters in parallel (JOBS=N to set concurrency): shellcheck, frontmatter, license, shared partials, script invocation, AGENTS.md size, markdown punctuation, skill test placement, Node.js syntax
 	@node ./bin/run-lints.mjs
 
 .PHONY: test

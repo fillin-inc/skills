@@ -11,14 +11,16 @@ argument-hint: "<テンプレートの .md パス> [--output <path>]"
 
 質問と回答は淡々と進める。質問文はテンプレートの文字列をそのまま使う。回答は音声入力の場合もあるため、打ち間違い・変換ミス・フィラーだけを整えて書き込み、内容は変えない。
 
-以下で `$SKILL_DIR` は、この SKILL.md が置かれているディレクトリの絶対パスを指す。
+<!-- @partial:skill-dir start -->
+**同梱スクリプト**: `$SKILL_DIR` = 本 SKILL.md が置かれているディレクトリの絶対パス。同梱スクリプトは `"$SKILL_DIR/scripts/<name>.sh"` を `sh` / `bash` を前置せず直接実行する(`.mjs` は `node` を前置)。cwd は作業対象リポジトリのまま変更しない。
+<!-- @partial:skill-dir end -->
 
 ## Phase 1: オプションの解決
 
 依頼からテンプレートと出力先の指定を読み取り、次を実行する。
 
 ```sh
-"$SKILL_DIR/scripts/parse-options.sh" <template.md> [--output <path>]
+node "$SKILL_DIR/scripts/parse-options.mjs" <template.md> [--output <path>]
 ```
 
 出力の `TEMPLATE` と `OUTPUT_PATH` を以降のフェーズで使う。`--output` が無ければ、`OUTPUT_PATH` には作業ディレクトリの `<テンプレート名>-<日付>.md` が、既存ファイルと重ならない名前で入る。
@@ -27,7 +29,8 @@ argument-hint: "<テンプレートの .md パス> [--output <path>]"
 
 スクリプトの呼び出しが失敗したときは次のように扱う。
 
-- シェルが 127 で終了した: skill の同梱ファイルが欠けているので、再インストールを案内して停止する
+- シェルが 127 で終了した: `node` が見つからない。Node.js 22 以上が必要なことを伝えて停止する
+- `node` が `Cannot find module` で終了した: skill の同梱ファイルが欠けているので、再インストールを案内して停止する
 - `exit 64`: stderr のメッセージを示す。Markdown 以外のテンプレートなら、この skill は Markdown だけを扱うことを伝える。指定を直してもらえたら Phase 1 をやり直し、中止されたら終了する
 - `exit 66`: テンプレートが見つからない。パスを確認してもらい、新しいパスが示されたら Phase 1 をやり直し、中止されたら終了する
 - 上記以外の非 0 で終了した: stderr と終了コードをそのまま示して停止する

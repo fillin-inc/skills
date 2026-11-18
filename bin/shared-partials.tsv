@@ -1,0 +1,16 @@
+# bin/shared-partials.tsv
+#
+# SKILL.md / references 等の任意 md ファイル内へ byte 同一に埋め込む
+# partial 文言のマニフェスト。
+# 各行は tab 区切りの (PARTIAL_PATH, TARGET_MD_PATH) の 2 列。
+# PARTIAL_PATH の内容が、TARGET_MD_PATH 内の当該 partial マーカー
+# (`<!-- @partial:<id> start -->` 〜 `<!-- @partial:<id> end -->`) 間に
+# **マーカー行を含めて** byte 同一で埋め込まれていることを
+# bin/lint-shared-partials.sh (make lint) が検証する。
+# skills/ 配下にあってこのマニフェストに無い partial マーカーも error にする。
+#
+# コメント行 (# で始まる行) と空行はスキップされる。
+#
+# 同梱スクリプトを持つ skill は skill-dir partial を SKILL.md 冒頭に埋め込む。
+bin/partials/skill-dir.md	skills/graphic-recording/SKILL.md
+bin/partials/skill-dir.md	skills/template-fill/SKILL.md

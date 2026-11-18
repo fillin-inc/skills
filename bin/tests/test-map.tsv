@@ -6,6 +6,7 @@ bin/tests/test-lint-frontmatter.sh	-
 bin/tests/test-lint-markdown-punctuation.sh	-
 bin/tests/test-lint-mjs-syntax.sh	-
 bin/tests/test-lint-script-invocation.sh	-
+bin/tests/test-lint-shared-partials.sh	-
 bin/tests/test-lint-skill-tests.sh	-
 bin/tests/test-run-lints.mjs	-
 bin/tests/test-run-tests.mjs	-
